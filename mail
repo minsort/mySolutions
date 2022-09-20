@@ -1,0 +1,71 @@
+//Fields of mail
+
+@Getter
+@Setter
+@Builder
+@ToString
+@NoArgsConstructor
+@AllArgsConstructor
+public class MailMessageItem {
+
+    private String mainRecipient;
+    private Set<String> otherRecipients;
+    private String subject;
+    private String messageBody;
+    private String pathToAttachment;
+
+}
+
+//Создание письма
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
+import ru.alvioneurope.smschs.config.ApplicationConfig;
+import ru.alvioneurope.smschs.services.mail.types.MailMessageItem;
+
+import javax.mail.internet.MimeMessage;
+import java.io.File;
+import java.util.Objects;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class MailService {
+
+    private final ApplicationConfig config;
+    private final JavaMailSender javaMailSender;
+
+    public boolean sendMail(MailMessageItem messageItem) {
+        try {
+            log.info("Send mail message : {}", messageItem);
+
+            MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+            MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(mimeMessage, true);
+
+            mimeMessageHelper.setSubject(messageItem.getSubject());
+            mimeMessageHelper.setFrom(config.getMailSender());
+            mimeMessageHelper.setTo(messageItem.getMainRecipient());
+            mimeMessageHelper.setText(messageItem.getMessageBody());
+
+            if (messageItem.getOtherRecipients() != null) {
+                for (String recipient : messageItem.getOtherRecipients()) {
+                    mimeMessageHelper.addCc(recipient);
+                }
+            }
+
+            FileSystemResource attachment = new FileSystemResource(new File(messageItem.getPathToAttachment()));
+            mimeMessageHelper.addAttachment(Objects.requireNonNull(attachment.getFilename()), attachment);
+
+            javaMailSender.send(mimeMessage);
+            log.info("Message has been successfully sent");
+            return true;
+        } catch (Exception e) {
+            log.error("{} : {}", e.getClass().getName(), e.getMessage());
+            return false;
+        }
+    }
+
+}
