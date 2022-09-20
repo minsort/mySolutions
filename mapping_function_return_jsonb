@@ -1,0 +1,35 @@
+// Обёртка для результата вызова функции в БД
+@Getter
+@Setter
+@Entity
+public class ReportResult {
+
+    @Id
+    @Column(name = "exec_time")
+    private LocalDateTime executionTime; // Это поле не используется в коде, но для работы Spring JPA необходимо, что бы было поле с @Id
+
+    @Type(type = "jsonb")
+    @Column(columnDefinition = "jsonb", name = "func_result")
+    private ReportJson content;
+}
+
+// Описание содержимого, которое возвращает функция в БД
+@Data
+public class ReportJson {
+
+    @JsonProperty("sms_request_name")
+    private String smsRequestName;
+
+    @JsonProperty("sms_request_text")
+    private String smsRequestText;
+
+    // ...
+}
+
+// Репозиторий с вызвовом функции в БД
+@Repository
+public interface ReportRepository extends JpaRepository<ReportResult, Long> {
+
+    @Query(nativeQuery = true, value = "select now() as exec_time, get_report_detailed(:report_id) as func_result;")
+    ReportResult getReport(@Param("report_id") Integer reportId);
+}
