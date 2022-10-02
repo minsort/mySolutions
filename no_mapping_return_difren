@@ -1,0 +1,43 @@
+@Service
+public class Service {
+
+ public List<Json> getAllLogs(Params params) {
+
+        List<Json>list = new ArrayList<>();
+        ObjectMapper objectMapper = new ObjectMapper();
+        String parametersAsString;
+        String response = null;
+
+        try {
+            parametersAsString = objectMapper.writer().writeValueAsString(
+                    params.getPFilterParamItem());
+
+        response = smsRequestRepository.NAME_FUNCTION(
+                parametersAsString,
+                mainParamsLogItem.getSortOrder(),
+                mainParamsLogItem.getPageNumber(),
+                mainParamsLogItem.getPageLimit());
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+
+        JsonArray convertedObject = new Gson().fromJson(response, JsonArray.class);
+
+        for (JsonElement a:convertedObject) {
+            list.add(new Json(a.toString()));
+        }
+
+        return list;
+    }
+}
+
+
+
+
+@Repository
+public interface Repository extends JpaRepository<Object,Integer> {
+
+    @Query(value = "select * from cast(NAME_FUNCTION(:db_object) as text)", nativeQuery = true)
+    String dictionaryGet(@Param("db_object")String dbObject);
+
+}
