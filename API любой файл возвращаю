@@ -1,0 +1,76 @@
+ @Slf4j
+@Configuration
+public class ApplicationConfig {
+
+    @Value("${config.application.is_local}")
+    private String isLocalApplicationString;
+
+    @Value("${config.application.data_directory}")
+    private String dataDirectoryPath;
+
+    @Value("${config.mail.sender}")
+    private String mailSender;
+
+    @PostConstruct
+    private void init() {
+        CustomFileUtils.createDirectoriesIfNotExists(dataDirectoryPath);
+    }
+
+    public Boolean isLocalApplication() {
+        return Boolean.valueOf(isLocalApplicationString);
+    }
+
+    public String getSmsRequestDirectoryPath() {
+        return dataDirectoryPath.concat("/REQUEST");
+    }
+
+}
+..................................................................................
+@GetMapping("/document/{name}")
+    @ResponseBody
+    @Secured(value = {"ROLE_PLATFORM_ADMIN", "ROLE_OPERATOR"})
+    public ResponseEntity<?> document(@PathVariable ("name") String fileCode) {
+
+        Resource resource = storageService.downloadDocument(fileCode);
+        if (resource == null) {
+            return new ResponseEntity<>("File not found", HttpStatus.NOT_FOUND);
+        }
+
+        String contentType = "application/octet-stream";
+        String headerValue = "attachment; filename=\"" + resource.getFilename() + "\"";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, headerValue)
+                .body(resource);
+    }
+..................................................................................
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class FileSystemStorageService {
+
+    private final ApplicationConfig config;
+public Resource downloadDocument(String fileCode) {
+
+        Path dirPath = Paths.get(config.getSmsRequestDirectoryPath());
+        try {
+            Files.list(dirPath).forEach(filess -> {
+                if (filess.getFileName().toString().startsWith(fileCode)) {
+                    foundFile = filess;
+                    return;
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (foundFile != null) {
+            try {
+                return new UrlResource(foundFile.toUri());
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+        }
+
+            return null;
+    }
