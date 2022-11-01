@@ -1,0 +1,48 @@
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class DbObjectService {
+
+    private final DictionaryViewRepository dictionaryViewRepository;
+
+    public Json getDictionary(String tableName) {
+        log.info("Get dictionary '{}'", tableName);
+
+        String response = dictionaryViewRepository.getDictionary(tableName);
+        
+        JsonObject convertedObject = new Gson().fromJson(response, JsonObject.class);
+
+        JsonArray jsonArray = convertedObject.getAsJsonArray("data");//получил список с объектами
+
+        JsonArray finalJsonArray = new JsonArray();
+
+        List<JsonElement>list=new ArrayList<>();//Добавляем объекты из JsonArray в список
+        for(int i=0;i<jsonArray.size();i++){
+            list.add(jsonArray.get(i));
+        }
+
+        list.sort(new Comparator<JsonElement>() {
+            private static final String KEY_NAME = "id";
+
+            @Override
+            public int compare(JsonElement a, JsonElement b) {
+                String valA = "";
+                String valB = "";
+
+                valA = a.getAsJsonObject().getAsJsonPrimitive(KEY_NAME).getAsString();
+                valB = b.getAsJsonObject().getAsJsonPrimitive(KEY_NAME).getAsString();
+
+                return valA.compareTo(valB);
+            }
+        });
+
+        for (JsonElement jsonElement : list) {
+            finalJsonArray.add(jsonElement);
+        }
+
+        convertedObject.add("data", finalJsonArray);
+
+        return new Json(convertedObject.toString());
+    }
+
+}
