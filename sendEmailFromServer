@@ -1,0 +1,84 @@
+      public class ResendReportDTO {
+    @JsonProperty("name")
+    private String subject;
+    @JsonProperty("emails")
+    private List<String> recipients;
+}
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class MailService {
+
+    private final ApplicationConfig config;
+    private final JavaMailSender javaMailSender;
+    private final ReportService reportService;
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+    public void send(ResendReportDTO reportDTO, Integer reportId) {
+        log.info(">> Resend report with id {} to {}", reportDTO, reportId);
+
+        final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+        final String fileName = config.getMailDirectoryPath()
+                .concat("/SMS_REQUEST_REPORT_")
+                .concat(dateFormat.format(Date.from(Instant.now())))
+                .concat(".xls");
+
+        try {
+            javaMailSender.send(mimeMessage -> {
+                MimeMessageHelper messageHelper = new MimeMessageHelper(mimeMessage, true);
+
+                messageHelper.setSubject(reportDTO.getSubject());
+                messageHelper.setTo(reportDTO.getRecipients().toArray(new String[0]));
+
+                log.info(">> Generate report file '{}'", fileName);
+                DetailedReportItem reportItem = reportService.getDetailedReport(reportId);
+                ReportExcelCreator excelCreator = new ReportExcelCreator(Collections.singletonList(reportItem));
+                excelCreator.export(fileName);
+                log.info("> File generate successfully");
+
+                File excelFile = new File(fileName);
+                messageHelper.addAttachment(fileName, new FileSystemResource(excelFile));
+            });
+
+            log.info(">> Message has been successfully sent");
+        } catch (Exception e) {
+            log.info(">> Message has been successfully sent");
+            throw DataValidationException.sendMailError(e.getMessage());
+        } finally {
+            File excelFile = new File(fileName);
+            if (excelFile.exists()) {
+                log.info(">> Delete file '{}'", fileName);
+                log.info(">> Operation result is '{}'", fileName);
+            }
+        }
+    }
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+public class ReportExcelCreator {
+
+    private XSSFWorkbook workbook;
+    private XSSFSheet sheet;
+    private List<DetailedReportItem> listReports;
+
+    public ReportExcelCreator(List<DetailedReportItem> listReports) {
+        this.listReports = listReports;
+        workbook = new XSSFWorkbook();
+    }
+
+    private void writeHeaderLine() {
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
+        ...............................................
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public class DetailedReportItem {
+
+    @JsonProperty("request_id")
+    private Integer .......;
+
+    @SerializedName("request_name")
+    @JsonProperty("request_name")
+    private String ...........;
+    ..........................................
