@@ -1,0 +1,207 @@
+public class ReportController {
+
+    private final ReportService reportService;
+    private final MailService mailService;
+    
+    @PostMapping("/all")
+    public List<Json> allSmsRequests(@RequestBody MainParams mainParams){   /////from controller
+        return reportService.getSmsRequests(mainParams);
+    }
+}
+    ////////////////////////////////////////////////////////////////////// Item
+public class MainParams {
+
+    @JsonProperty("p_filter")
+    private FilterJsonbParam filterJsonbParam;
+    @JsonProperty("sort_order")
+    private String sortOrder;
+    @JsonProperty("page_number")
+    private Integer pageNumber;
+    @JsonProperty("page_limit")
+    private Integer pageLimit;
+
+}
+////////////////////////////////////////////////////////////////////////// Item
+public class FilterJsonbParam {
+
+    @JsonProperty("sms_request_name")
+    private String smsRequestName;
+    @JsonProperty("date_from")
+    private String dateFrom;
+    @JsonProperty("date_to")
+    private String dateTo;
+    @JsonProperty("workplace_id")
+    private Integer workplaceId;
+    @JsonProperty("user_id")
+    private Integer userId;
+    @JsonProperty("territories")
+    private List<Short> territories;
+    @JsonProperty("mobile_operators")
+    private List<Short> mobileOperators;
+    @JsonProperty("status_id")
+    private Integer statusId;
+
+}
+//////////////////////////////////////////////////////////////////////////////////////////
+public class ReportService {
+
+    private final ReportRepository reportRepository;
+    private final AuthHelper authHelper;
+    private final UserRepository userRepository;
+public List<Json> getSmsRequests(MainParams mainParams) {
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String parametersAsString = null;
+        FilterJsonbParam filterJsonbParam = mainParams.getFilterJsonbParam();/////
+
+        AuthUserWrapper authUser = authHelper.getAuthUser();
+        String login = authUser.getLogin();
+        Integer idWorkplace = 0;
+
+        if(authUser.isWorkplaceAdmin()){
+            if(userRepository.findByLoginAndIsDeletedFalse(login).isPresent()) {
+                idWorkplace = userRepository.findByLoginAndIsDeletedFalse(login).get()
+                        .getWorkplace().getId().intValue();
+            }
+
+            if (idWorkplace != mainParams.getFilterJsonbParam().getWorkplaceId() &&
+                    mainParams.getFilterJsonbParam().getWorkplaceId() != null) {
+                throw new RuntimeException("СМС-рассылки созданные внутри рабочего места с id: " + idWorkplace + ", не доступны для пользователя: "+ login);
+            }
+            if(mainParams.getFilterJsonbParam().getWorkplaceId() == null){
+
+                filterJsonbParam = new FilterJsonbParam();
+
+                filterJsonbParam.setDateFrom(mainParams.getFilterJsonbParam().getDateFrom());
+                filterJsonbParam.setDateTo(mainParams.getFilterJsonbParam().getDateTo());
+                filterJsonbParam.setMobileOperators(mainParams.getFilterJsonbParam().getMobileOperators());
+                filterJsonbParam.setStatusId(mainParams.getFilterJsonbParam().getStatusId());
+                filterJsonbParam.setSmsRequestName(mainParams.getFilterJsonbParam().getSmsRequestName());
+                filterJsonbParam.setTerritories(mainParams.getFilterJsonbParam().getTerritories());
+                filterJsonbParam.setUserId(mainParams.getFilterJsonbParam().getUserId());
+                filterJsonbParam.setWorkplaceId(idWorkplace);
+
+                mainParams.setFilterJsonbParam(filterJsonbParam);
+            }
+        }
+
+        try {
+            parametersAsString = objectMapper.writer().writeValueAsString(//!!!!!!!!!!!!!!
+                    mainParams.getFilterJsonbParam());
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+
+        List<Json> list = new ArrayList<>();
+            JsonArray convertedObject = new Gson().fromJson(reportRepository.getSmsRequests(
+                    parametersAsString,/////////////////////////////////////////////////////!!!!!!!!!!!!!!!!!!!!
+                    mainParams.getSortOrder(),
+                    mainParams.getPageNumber(),
+                    mainParams.getPageLimit()),
+
+                    JsonArray.class);
+
+            for (JsonElement a:convertedObject) {
+                list.add(new Json(a.toString()));
+            }
+
+        return list;
+    }
+
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+@Repository
+public interface ReportRepository extends JpaRepository<ReportEntity, Integer> {
+
+    @Query(value = "select reports.get_sms_requests(cast(:p_filter as jsonb),:p_sort_order,:p_page_number,:p_page_limit)", nativeQuery = true)///////////
+    String getSmsRequests(@Param("p_filter")String pFilter,
+                          @Param("p_sort_order")String sortOrder,
+                          @Param("p_page_number")Integer pageNumber,
+                          @Param("p_page_limit")Integer pageLimit
+    );
+
+}
+
+А вот метод с неудачными попытками:
+
+public List<Json> getSmsRequests(MainParams mainParams) {
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String parametersAsString = null;
+        //FilterJsonbParam filterJsonbParam = mainParams.getFilterJsonbParam();/////
+
+        AuthUserWrapper authUser = authHelper.getAuthUser();
+        String login = authUser.getLogin();
+        Integer idWorkplace = 0;
+
+        if(authUser.isWorkplaceAdmin()){
+            if(userRepository.findByLoginAndIsDeletedFalse(login).isPresent()) {
+                idWorkplace = userRepository.findByLoginAndIsDeletedFalse(login).get()
+                        .getWorkplace().getId().intValue();
+            }
+
+            /*if (idWorkplace != mainParams.getFilterJsonbParam().getWorkplaceId() &&
+                    mainParams.getFilterJsonbParam().getWorkplaceId() != null) {
+                throw new RuntimeException("СМС-рассылки созданные внутри рабочего места с id: " + idWorkplace + ", не доступны для пользователя: "+ login);
+            }*/
+            /*if(mainParams.getFilterJsonbParam().getWorkplaceId() == null){
+
+                filterJsonbParam = new FilterJsonbParam();
+
+                filterJsonbParam.setDateFrom(mainParams.getFilterJsonbParam().getDateFrom());
+                filterJsonbParam.setDateTo(mainParams.getFilterJsonbParam().getDateTo());
+                filterJsonbParam.setMobileOperators(mainParams.getFilterJsonbParam().getMobileOperators());
+                filterJsonbParam.setStatusId(mainParams.getFilterJsonbParam().getStatusId());
+                filterJsonbParam.setSmsRequestName(mainParams.getFilterJsonbParam().getSmsRequestName());
+                filterJsonbParam.setTerritories(mainParams.getFilterJsonbParam().getTerritories());
+                filterJsonbParam.setUserId(mainParams.getFilterJsonbParam().getUserId());
+                filterJsonbParam.setWorkplaceId(idWorkplace);
+
+                mainParams.setFilterJsonbParam(filterJsonbParam);
+            }*/
+        }
+
+
+            parametersAsString = new Gson().toJson(mainParams.getFilterJsonbParam());
+
+//Не работает!!!!
+   /* 1)    try {
+            parametersAsString = objectMapper.writer().writeValueAsString(
+                    mainParams.getFilterJsonbParam());
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+
+      2) parametersAsString = mainParams.getFilterJsonbParam();
+
+      3) parametersAsString = new Gson().toJson(mainParams.getFilterJsonbParam());
+
+      4) parametersAsString = new Gson().toJson(mainParams.getFilterJsonbParam());
+      
+ List<Json> list = new ArrayList<>();
+            JsonArray convertedObject = new Gson().fromJson(reportRepository.getSmsRequests(
+                    new Json (parametersAsString),
+                    mainParams.getSortOrder(),
+                    mainParams.getPageNumber(),
+                    mainParams.getPageLimit()),
+
+        */
+        /////////////////////////////////////////////////////////////////
+
+        List<Json> list = new ArrayList<>();
+            JsonArray convertedObject = new Gson().fromJson(reportRepository.getSmsRequests(
+                    new Json (parametersAsString),
+                    mainParams.getSortOrder(),
+                    mainParams.getPageNumber(),
+                    mainParams.getPageLimit()),
+
+                    JsonArray.class);
+
+            for (JsonElement a:convertedObject) {
+                list.add(new Json(a.toString()));
+            }
+
+        return list;
+    }
+
+
