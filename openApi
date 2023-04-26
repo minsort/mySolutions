@@ -1,0 +1,212 @@
+//Pagination
+
+openapi: 3.0.3
+info:
+  title: notification-viewer
+  version: 1.0.0
+paths:
+  /notifications:
+    post:
+      summary: Список сообщений
+      parameters:
+        - in: query
+          name: page
+          description: Начальное значение
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: num_pages
+          description: Количество результатов, возвращаемых на страницу
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: sort
+          description: Направление сортировки (asc или desc)
+          required: false
+          schema:
+            type: string
+            enum: ['asc', 'desc']
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifacations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notifications'
+
+components:
+  schemas:
+    Notifications:
+      type: object
+      properties:
+        uuid:
+          type: string
+        title:
+          type: string
+        sender:
+          type: string
+        recipient:
+          type: string
+        text:
+          type: string
+        type:
+          type: string
+          enum: ['SMS', 'TELEGRAM', 'LOG', 'EMAIL']
+        status:
+          type: string
+          enum: ['NEW', 'IN_PROCESS', 'OK', 'ERROR']
+      required:
+        - uuid
+        - title
+        - sender
+        - recipient
+        - text
+        - type
+        - status
+________________________________________________________________________________________
+
+openapi: 3.0.3
+info:
+  title: notification.viewer
+  version: 1.0.0
+servers:
+  - url: http://localhost
+    description: адрес сервера
+paths:
+  /notifications:
+    get:
+      tags:
+        - Filter
+      description: Возвращает все отправленные сообщения
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/sender'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResult"
+components:
+  parameters:
+    page:
+      in: query
+      name: page
+      description: Начальное значение
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    size:
+      in: query
+      name: size
+      description: Количество результатов, возвращаемых на страницу
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+    sort:
+      in: query
+      name: sort
+      description: Направление сортировки (asc или desc)
+      required: false
+      schema:
+        type: string
+        enum: ['asc', 'desc']
+    sender:
+      required: false
+      name: sender
+      in: query
+      schema:
+        type: string
+  schemas:
+    notification:
+      title: Сообщение
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор
+        title:
+          type: string
+          description: Заголовок сообщения
+          example: Приветствие
+        sender:
+          type: string
+        recipient:
+          type: string
+        text:
+          type: string
+          description: Содержание сообщения
+          example: Привет!
+        type:
+          type: string
+          description: Способ доставки сообщения
+          enum:
+            - SMS
+            - TELEGRAM
+            - LOG
+            - EMAIL
+        status:
+          type: string
+          description: Способ доставки сообщения
+          enum:
+            - NEW
+            - IN_PROCESS
+            - OK
+            - ERROR
+    notifications:
+      title: Все сообщения отправителя
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/notification'
+    PaginatedResult:
+      type: object
+      properties:
+        count:
+          description: Записей на странице
+          type: integer
+        total:
+          description: Всего записей
+          type: integer
+        page:
+          description: Начальное значение
+          type: integer
+        size:
+          description: Количество сообщений на странице
+          type: integer
+        sort:
+          description: Направление сортировки (asc или desc)
+          type: string
+          enum: ['asc', 'desc']
+        results:
+          type: array
+          items: {}
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
