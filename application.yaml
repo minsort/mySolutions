@@ -1,0 +1,19 @@
+//Используем health, info, metrics, prometheus и дополнительный профиль
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+
+---
+spring.config.activate.on-profile: dev
+server:
+  port: 0000
+spring:
+  datasource:
+    url: jdbc:postgresql://000000000:5432/bd
+logging:
+  level:
+    root: info
+    sql: debug
