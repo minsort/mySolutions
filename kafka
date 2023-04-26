@@ -1,0 +1,285 @@
+//First variant
+
+application.yaml
+cloud:
+    stream:
+      default:
+        group: ${spring.application.name}
+        content-type: application/json
+      bindings:
+        notificationsResult:
+          destination: notifications.result
+        notificationsIncoming:
+          destination: notifications.incoming
+      binders:
+        kafka:
+          environment:
+            spring:
+              kafka:
+                consumer:
+                  key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+                  value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+                producer:
+                  key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      kafka:
+        binder:
+          brokers: kafka-service:9092
+          configuration:
+            key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+            value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        default:
+          consumer:
+            enableDlq: true
+            autoCommitOnError: true
+            autoCommitOffset: true
+            dlqName: messages-with-errors-${spring.application.name}
+            dlqProducerProperties:
+              configuration:
+                value:
+                  serializer: org.apache.kafka.common.serialization.StringSerializer
+
+
+//class consumer
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cloud.stream.annotation.StreamListener;
+import org.springframework.stereotype.Service;
+import ru.alvioneurope.infra.lib.notification.result.dto.NotificationResultMessage;
+import ru.alvioneurope.service.NotificationApiService;
+
+@Service
+public class KafkaConsumer {
+
+    private final NotificationApiService notificationApiService;
+    static final Logger log = LoggerFactory.getLogger(KafkaConsumer.class);
+
+    public KafkaConsumer(NotificationApiService notificationApiService) {
+        this.notificationApiService = notificationApiService;
+    }
+
+    @StreamListener(KafkaConsumerChannel.CHANNEL)
+    public void handle(NotificationResultMessage notificationResultMessage) {
+        notificationApiService.updateStatus(notificationResultMessage);
+        log.info("Status of the message has been changed {}", notificationResultMessage);
+    }
+}
+//Interface cosumer channel
+
+import org.springframework.cloud.stream.annotation.Input;
+import org.springframework.messaging.SubscribableChannel;
+
+public interface KafkaConsumerChannel {
+    String CHANNEL = "notificationsResult";
+
+    @Input(CHANNEL)
+    SubscribableChannel channel();
+}
+
+//Class producer
+
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.stereotype.Component;
+import ru.alvioneurope.infra.lib.notification.incoming.dto.NotificationIncomingMessage;
+
+import java.util.UUID;
+
+@Component
+public class KafkaProducer {
+
+    private final KafkaProducerChannel producer;
+
+    public KafkaProducer(KafkaProducerChannel producer) {
+        this.producer = producer;
+    }
+
+    public void sendMessage(NotificationIncomingMessage payload) {
+        Message<NotificationIncomingMessage> message = MessageBuilder
+                .withPayload(payload)
+                .setHeaderIfAbsent("UUID", UUID.randomUUID())
+                .build();
+        producer.channel().send(message);
+    }
+}
+//Interface producer channel
+
+import org.springframework.cloud.stream.annotation.Output;
+import org.springframework.messaging.MessageChannel;
+
+public interface KafkaProducerChannel {
+    String CHANNEL = "notificationsIncoming";
+
+    @Output(CHANNEL)
+    MessageChannel channel();
+}
+
+//Application
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.stream.annotation.EnableBinding;
+import ru.alvioneurope.kafka.consumer.KafkaConsumerChannel;
+import ru.alvioneurope.kafka.producer.KafkaProducerChannel;
+
+@SpringBootApplication
+@EnableBinding({
+        KafkaConsumerChannel.class,
+        KafkaProducerChannel.class
+})
+public class Application {
+
+    public static void main(String... args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+                  
+//Gradle
+
+import java.time.Instant
+
+buildscript {
+    val versionKotlin: String by project
+    repositories {
+        maven { url = uri("https://homeserver/repository/maven-public/") }
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$versionKotlin")
+        classpath("org.jetbrains.kotlin:kotlin-stdlib")
+        classpath("com.google.cloud.tools:jib-gradle-plugin:3.3.1")
+        classpath("commons-io:commons-io:2.7")
+
+    }
+}
+
+plugins {
+    java
+    idea
+    kotlin("jvm")
+    kotlin("plugin.spring"
+    id("io.spring.dependency-management")
+    id("org.springframework.boot"
+}
+
+repositories {
+    maven { url = uri("https://homeserver/repository/maven-public/") }
+    mavenCentral()
+}
+
+val projectGroup: String by project
+val versionKotlin: String by project
+val versionSpringBoot: String by project
+val versionSpringCloud: String by project
+
+group = projectGroup
+version = projectVersion
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.boot:spring-boot-dependencies:$versionSpringBoot")
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:$versionSpringCloud")
+    }
+}
+
+dependencies {
+    // Libs
+    implementation("homeserver.infra.lib:notification-crud-openapi:0.0.8")
+    implementation(files("libs/notifications-security-starter-0.0.1-with-dependencies.jar"))
+
+    //Kafka
+    implementation("org.springframework.cloud:spring-cloud-starter-stream-kafka")
+
+    // Spring dependency
+    implementation("org.springframework.boot:spring-boot-starter-web")
+
+    // Management endpoints:
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
+
+    // Swagger annotations
+    implementation("io.swagger.core.v3:swagger-annotations:2.2.8")
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.compileJava {
+    dependsOn(tasks.compileKotlin)
+}
+
+_________________________________________________________________________________________________________
+//Second variant
+
+application.yaml
+spring:
+  application:
+    name: notification-manager
+  kafka:
+    bootstrap-servers: ${KAFKA_HOST:kafka-service}
+    #Producer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    #Consumer
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: homeserver.lib.notification.result.dto
+      enable-auto-commit: true
+      auto-commit-interval: 1000
+      
+//Concumer
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+import ru.alvioneurope.lib.notification.result.dto.NotificationResultMessage;
+import ru.alvioneurope.service.NotificationApiService;
+
+@Component
+public class KafkaConsumer {
+
+    static final Logger log = LoggerFactory.getLogger(KafkaConsumer.class);
+
+    @KafkaListener(topics = "*s.result", groupId = "*-manager")
+    public void consumer(ConsumerRecord<String, *ResultMessageObject> record) {
+        log.info("Status {} of the message has been changed", record.value());
+    }
+}
+
+//Producer
+
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
+import ru.alvioneurope.lib.notification.incoming.dto.NotificationIncomingMessage;
+
+import java.util.UUID;
+
+@Component
+public class KafkaProducer {
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    final String topic = "notifications.incoming";
+
+    public KafkaProducer(KafkaTemplate<String, Object> kafkaTemplate) {
+        this.kafkaTemplate = kafkaTemplate;
+    }
+
+    public void sendMessage(*IncomingMessage *IncomingMessage) {
+        String key = UUID.randomUUID().toString();
+
+        ProducerRecord<String, Object> producerRecord = new ProducerRecord<>(topic,
+                key,
+                *IncomingMessage);
+        kafkaTemplate.send(producerRecord);
+    }
+}
+
+
