@@ -1,0 +1,26 @@
+//for micro-service!!!
+import org.springframework.cloud.openfeign.FeignClient;
+import ClassOrInterfaceFromMicroservice;
+
+@FeignClient(value = "nameValue", url = "${app.notificationCrudApiClientUrl}")
+public interface NotificationCrudApiClient extends ClassOrInterfaceFromMicroservice {
+}
+
+//application.yaml
+app:
+  nameCrudApiClientUrl: http://name-crud-service:8080
+  
+//gradle
+//Openfeign
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+    
+//for allll (alternative RestTamplate)!!! 
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import NameRequest;
+
+@FeignClient(value = "nameValue", url = "https://localhost:8080")
+public interface ApiMessageSave {
+    @RequestMapping(method = RequestMethod.POST, value = "/path")
+    void save(NameRequest nameRequest);
