@@ -1,0 +1,62 @@
+#docker-compose
+version: '3.1'
+
+services:
+
+  consul:
+    image: consul:latest
+    command: consul agent -dev -ui -client 0.0.0.0
+    ports:
+      - 8300:8300
+      - 8500:8500
+      - 8600:8600
+
+  consul-config-loader:
+    image: jhipster/consul-config-loader:latest
+    volumes:
+      - ./consulConfig.local:/config
+    environment:
+      - INIT_SLEEP_SECONDS=10
+      - CONSUL_URL=consul
+      - CONSUL_PORT=8500
+_________________________________________________________________________________
+#application.yaml
+
+management:
+  security:
+    enabled: false
+  endpoint:
+    health:
+      enabled: true
+
+spring:
+  application:
+    name: notification-manager
+  config:
+    import: consul:localhost
+  cloud:
+    consul:
+      enabled: true
+      host: localhost
+      port: 8500
+      config:
+        default-context: notification-manager
+        profile-separator: '-'
+        format: yaml
+
+server:
+  port: 8080
+__________________________________________________________________________________
+gradle
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:$versionSpringCloud")
+    }
+}
+
+ //Consul
+    implementation("org.springframework.cloud:spring-cloud-starter-consul-config")
+ __________________________________________________________________________________
+ //Сначала запускаем docker-compose, после чего будет создана директория consulConfig.local. 
+ //Закидываем в нее файлы для Консула (и application.yaml)
