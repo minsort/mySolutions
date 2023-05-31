@@ -16,3 +16,25 @@ class FeignClientConfig {
     @Value("\${app.userCrudApiClientUrl}")
     lateinit var userCrudApiClientUrl: String
 }
+----------------------------------------------
+@Service
+interface KeycloakGateway {
+    @RequestLine("GET /UserCrudFeignClientGroup")
+    fun getGroups(): List<GroupWithUsersDto>?
+
+    @RequestLine("GET /UserCrudFeignClientGroup")
+    fun getGroupData(groupId: UUID): GroupWithUsersDto?
+
+    @RequestLine("GET /UserCrudFeignClientUser")
+    fun getUserByName(nameUser: String): UserDto
+
+    @RequestLine("GET /UserCrudFeignClientUser")
+    fun getUserByUuid(userId: UUID): UserDto
+
+    @RequestLine("GET /UserCrudFeignClientUser")
+    fun joinGroup(userId: UUID, groupId: UUID): ResponseEntity<Void>
+
+    @RequestLine("GET /UserCrudFeignClientUser")
+    fun leaveGroup(userId: UUID, groupId: UUID): ResponseEntity<Void>
+
+}
