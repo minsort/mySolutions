@@ -1,0 +1,18 @@
+//kotlin
+@Service
+interface KeycloakGateway {
+    @RequestLine("GET /UserCrudFeignClientUser")
+    fun getClientUserResource(): Response
+
+    @RequestLine("GET /UserCrudFeignClientGroup")
+    fun getClientGroupResource(): Response
+}
+----------------------------------------------
+@FeignClient(value = "userCrudFeignClientGroup", url = "#{feignClientConfig.userCrudApiClientUrl}")
+interface UserCrudFeignClientGroup : GroupApi {}
+----------------------------------------------
+@Configuration
+class FeignClientConfig {
+    @Value("\${app.userCrudApiClientUrl}")
+    lateinit var userCrudApiClientUrl: String
+}
